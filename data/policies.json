@@ -1,0 +1,27 @@
+[
+    {
+      "id": "wfh_reimbursement",
+      "title": "Work From Home Reimbursement",
+      "text": "Employees working remotely are eligible for a monthly reimbursement of up to $100. This allowance is intended to cover expenses such as internet bills, electricity usage, or co-working space fees. To claim the reimbursement, employees must submit their receipts through the HR portal before the 5th of the following month. Reimbursements will be processed with the monthly payroll. Please note that only actual, itemized expenses will be considered, and claims without valid receipts may be rejected."
+    },
+    {
+      "id": "learning_budget",
+      "title": "Learning & Development Budget",
+      "text": "We believe in continuous learning and want to support employees in growing their skills. Every employee is eligible for an annual learning and development allowance of $500. This budget can be used for online courses, certifications, technical books, or workshops that are relevant to your role. To access this benefit, submit your request to your manager for approval before making the purchase. The amount will either be reimbursed or directly covered by the company. Employees are encouraged to share their learnings with the team to maximize its value."
+    },
+    {
+      "id": "health_wellness",
+      "title": "Health & Wellness Policy",
+      "text": "Employee well-being is a top priority for us. Each employee is entitled to a wellness allowance of up to $200 per calendar year. This can be used toward gym memberships, fitness classes, wellness apps, yoga programs, or other health-related activities. Employees can submit receipts through the HR system to claim reimbursement. In addition to this allowance, the company encourages everyone to take regular breaks, use their annual leave fully, and maintain a healthy work-life balance."
+    },
+    {
+      "id": "home_office_setup",
+      "title": "Home-Office Setup",
+      "text": "To help employees work comfortably and productively from home, the company provides a one-time home-office setup reimbursement of $300 for all new remote employees. This allowance can be used for items such as a desk, ergonomic chair, monitor, or other essential equipment. The purchase must be made within the first three months of joining, and receipts should be uploaded through the HR portal. Items purchased remain the property of the employee, but it is expected that they are used to support home-office work."
+    },
+    {
+      "id": "flexible_hours",
+      "title": "Flexible Work Hours",
+      "text": "While our general office hours are from 9:00 AM to 6:00 PM, we recognize that flexibility helps everyone do their best work. Employees are allowed to adjust their schedules to suit personal needs, such as childcare, medical appointments, or other responsibilities, as long as their work commitments and team collaboration are not affected. Managers should be informed of any significant changes to regular hours. Teams are encouraged to set core hours for meetings and collaboration, while allowing flexibility outside of those times."
+    }
+  ]
