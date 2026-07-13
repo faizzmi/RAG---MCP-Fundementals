@@ -26,3 +26,6 @@ Thumbs.db
 
 # compiled files
 repomix-output.xml
+
+# generated logs
+query_monitor_log.json

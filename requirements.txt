@@ -1,7 +1,14 @@
+# Lab 1 - keyword search
 scikit-learn
-pandas
 rank_bm25
-numpy
+
+# Lab 2 - semantic search
 sentence-transformers
 openai
+
+# Lab 3 - chunking + vector DB
+chromadb
+
+numpy
+pandas
 python-dotenv

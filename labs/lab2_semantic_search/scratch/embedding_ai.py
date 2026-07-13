@@ -1,8 +1,3 @@
-"""
-Scratch lab: generating embeddings via the OpenAI API instead of a local
-sentence-transformers model. Needs OPENAI_API_KEY set in .env.
-"""
-
 import logging
 from openai import OpenAI, RateLimitError, AuthenticationError, APIError
 import config

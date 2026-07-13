@@ -1,12 +1,6 @@
-"""
-Lab 1: Basic Search and Keyword Limitations
-Compares TF-IDF and BM25 keyword search against the same policy dataset,
-using the same test queries, so results can be compared side by side.
-"""
-
-from search.keyword_search.bm25_method import BM25Search
-from search.keyword_search.tfidf_method import TfidfSearch
-from search.utils import load_policies, run_test_queries
+from labs.lab1_keyword_search.bm25_method import BM25Search
+from labs.lab1_keyword_search.tfidf_method import TfidfSearch
+from shared.utils import load_policies, run_test_queries
 
 titles, docs = load_policies("data/policies.json")
 

@@ -1,6 +1,3 @@
-"""Shared helpers used by every search method (TF-IDF, BM25, and later
-semantic/vector search) so we don't repeat loading or printing logic."""
-
 import json
 import numpy as np
 

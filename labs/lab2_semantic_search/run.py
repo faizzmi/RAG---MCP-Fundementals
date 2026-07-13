@@ -1,7 +1,7 @@
-from search.utils import load_policies, evaluate_accuracy
-from search.keyword_search.tfidf_method import TfidfSearch
-from search.keyword_search.bm25_method import BM25Search
-from search.semantic_search.embedding_method import SemanticSearch
+from shared.utils import load_policies, evaluate_accuracy
+from labs.lab1_keyword_search.tfidf_method import TfidfSearch
+from labs.lab1_keyword_search.bm25_method import BM25Search
+from labs.lab2_semantic_search.embedding_method import SemanticSearch
 
 titles, docs = load_policies("data/policies.json")
 
