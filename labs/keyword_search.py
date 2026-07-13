@@ -5,9 +5,8 @@ using the same test queries, so results can be compared side by side.
 """
 
 from search.keyword_search.bm25_method import BM25Search
-from search.keyword_search.tidf_method import TfidfSearch
-from search.keyword_search.utils import load_policies, run_test_queries
-
+from search.keyword_search.tfidf_method import TfidfSearch
+from search.utils import load_policies, run_test_queries
 
 titles, docs = load_policies("data/policies.json")
 

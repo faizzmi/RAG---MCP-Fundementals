@@ -1,0 +1,117 @@
+# Semantic Search vs Keyword Search — Comparison Notes
+
+Reference notes for the RAG & MCP Fundamentals project. Based on real
+output from `labs/keyword_search.py` running against `data/policies.json`.
+
+---
+
+## The core difference
+
+**Keyword search** (TF-IDF, BM25) matches exact words. It scores a document
+higher if the query's words literally appear in it, weighted by how rare
+those words are across the whole collection.
+
+**Semantic search** (embeddings) matches *meaning*. It converts text into
+vectors (lists of numbers) that capture concepts, so "money back for gym"
+can match "wellness allowance" even though they share zero words.
+
+---
+
+## Pros and Cons
+
+### Keyword Search (TF-IDF / BM25)
+
+| Pros | Cons |
+|---|---|
+| Fast, no GPU or model download needed | Fails on paraphrased queries (zero word overlap = zero score) |
+| Exact matches are precise (great for IDs, SKUs, names, error codes) | Can't tell synonyms apart ("reimbursement" vs "money back") |
+| Easy to explain/debug — you can see exactly why a doc scored high | Common words across many docs get little useful signal, sometimes noisy on tiny datasets |
+| No embedding cost, works fully offline, no API key | Doesn't understand context or intent, just word overlap |
+| Great for structured/technical text (logs, code, product catalogs) | Ranking quality drops as vocabulary overlaps between docs increase |
+
+### Semantic Search (Embeddings)
+
+| Pros | Cons |
+|---|---|
+| Understands meaning, paraphrases and synonyms work | Slower — needs an embedding model to run on every query |
+| Great for natural language questions ("how do I get money back for gym") | Less transparent — harder to explain *why* something matched |
+| Works even with zero shared vocabulary between query and doc | Can occasionally match on vague "vibes" rather than a real answer |
+| Scales well with vector databases (Chroma, Pinecone) for large corpora | Needs a model download (or API calls) and more setup |
+| Captures relationships (e.g. "car" ~ "vehicle" ~ "automobile") | Struggles with exact-match needs (IDs, codes, rare exact terms) |
+
+**In production, most systems use both** (hybrid search): keyword search
+for exact-match precision, semantic search for recall on natural language,
+then merge/re-rank the results.
+
+---
+
+## Real example from this project
+
+Query: `"money back for working from home"` — no exact keyword overlap with
+the document title "Work From Home Reimbursement" beyond "working"/"home".
+
+**TF-IDF result** (`search/keyword_search/tidf_method.py`):
+```
+1. Home-Office Setup                   score=0.271   ← wrong top pick
+2. Work From Home Reimbursement        score=0.158
+```
+
+**BM25 result** (`search/keyword_search/bm25_method.py`):
+```
+1. Work From Home Reimbursement        score=1.333   ← correct
+2. Home-Office Setup                   score=0.614
+```
+
+Even between two keyword methods, results already disagree. Once Lab 2
+(semantic search) is added, the expectation is it should rank
+"Work From Home Reimbursement" clearly first *regardless* of exact wording,
+since it understands "money back" ≈ "reimbursement" and "working from home"
+≈ "remote".
+
+---
+
+## Code example: keyword search (already in this project)
+
+`search/keyword_search/bm25_method.py`:
+```python
+from rank_bm25 import BM25Okapi
+
+class BM25Search:
+    def __init__(self, docs):
+        self.tokenized_docs = [doc.lower().split() for doc in docs]
+        self.bm25 = BM25Okapi(self.tokenized_docs)
+
+    def get_scores(self, query):
+        tokenized_query = query.lower().split()
+        return self.bm25.get_scores(tokenized_query)
+```
+
+## Code example: semantic search (Lab 2, not built yet — preview)
+
+Same `get_scores(query)` interface as `BM25Search`/`TfidfSearch`, so it
+will plug straight into the existing `run_test_queries()` in
+`search/keyword_search/utils.py` with no changes needed elsewhere:
+
+```python
+from sentence_transformers import SentenceTransformer, util
+
+class SemanticSearch:
+    def __init__(self, docs):
+        self.model = SentenceTransformer("all-MiniLM-L6-v2")
+        self.doc_embeddings = self.model.encode(docs, convert_to_tensor=True)
+
+    def get_scores(self, query):
+        query_embedding = self.model.encode(query, convert_to_tensor=True)
+        scores = util.cos_sim(query_embedding, self.doc_embeddings)
+        return scores[0].cpu().numpy()
+```
+
+---
+
+## Links to project files
+
+- Keyword search runner: `labs/keyword_search.py`
+- TF-IDF implementation: `search/keyword_search/tidf_method.py`
+- BM25 implementation: `search/keyword_search/bm25_method.py`
+- Shared output/loading helpers: `search/keyword_search/utils.py`
+- Data used: `data/policies.json`

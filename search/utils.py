@@ -31,3 +31,22 @@ def run_test_queries(method_name, search_fn, queries, titles):
     for query in queries:
         scores = search_fn(query)
         print_results(method_name, query, scores, titles)
+
+def evaluate_accuracy(method_name, search_fn, test_cases, titles):
+    """Run test_cases (query + expected doc id) through search_fn,
+    print each result, and report overall accuracy for this method."""
+    correct = 0
+
+    print(f"\n[{method_name}] Accuracy check")
+    for query, expected_id in test_cases:
+        scores = search_fn(query)
+        predicted_id = int(np.argmax(scores))
+        is_correct = predicted_id == expected_id
+        correct += is_correct
+
+        status = "✓" if is_correct else "✗"
+        print(f"  {status} {query!r:45} predicted={titles[predicted_id]:30} expected={titles[expected_id]}")
+
+    accuracy = correct / len(test_cases) * 100
+    print(f"  Accuracy: {correct}/{len(test_cases)} ({accuracy:.0f}%)")
+    return accuracy
