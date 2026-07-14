@@ -9,6 +9,11 @@ openai
 # Lab 3 - chunking + vector DB
 chromadb
 
+# Lab 4 - Caching + re-ranking
+redis
+json
+hashlib
+
 numpy
 pandas
 python-dotenv

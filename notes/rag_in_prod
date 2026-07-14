@@ -1,0 +1,65 @@
+Container Orchestration
+
+```mermaid
+flowchart LR
+    subgraph App["Application Layer"]
+        direction TB
+        UI["User Interface System"]
+        MOBILE["Mobile Service"]
+        Admin["Admin Service"]
+    end
+
+    subgraph RAG["RAG Pipeline Layer"]
+        direction TB
+        Query["Query Service"]
+        Chunking["Chunking"]
+        Embeddings["Embeddings"]
+        Retrieval["Retrieval"]
+        Augment["Augment Service"]
+        Generate["Generate"]
+        Routing["Routing"]
+        Caching["Caching"]
+    end
+
+    subgraph Data["Data Layer"]
+        direction TB
+        NoSQL["Vector DB"]
+        Cache["Redis"]
+        SQL["PostgreSQL"]
+    end
+
+    subgraph MONITOR["Monitoring Stack"]
+        direction TB
+        Grafana["Grafana"]
+        Prometheus["Prometheus"]
+        Jaeger["Jaeger"]
+        PPD["Private Policy Document"]
+    end
+
+    Data --- MONITOR
+    Data --- RAG
+    App --- MONITOR
+    App --- RAG
+    RAG --- MONITOR
+
+    classDef appStyle fill:#1e3a5f,stroke:#4a90d9,stroke-width:2px,color:#fff
+    classDef ragStyle fill:#2d4a2d,stroke:#5cb85c,stroke-width:2px,color:#fff
+    classDef dataStyle fill:#4a2d4a,stroke:#c95cc9,stroke-width:2px,color:#fff
+    classDef monStyle fill:#5f3a1e,stroke:#d9a04a,stroke-width:2px,color:#fff
+
+    class UI,MOBILE,Admin appStyle
+    class Query,Chunking,Embeddings,Retrieval,Augment,Generate,Routing,Caching ragStyle
+    class NoSQL,Cache,SQL dataStyle
+    class Grafana,Prometheus,Jaeger,PPD monStyle
+
+    style App fill:#0d1b2a,stroke:#4a90d9,stroke-width:2px
+    style RAG fill:#0d1b0d,stroke:#5cb85c,stroke-width:2px
+    style Data fill:#1b0d1b,stroke:#c95cc9,stroke-width:2px
+    style MONITOR fill:#2a1b0d,stroke:#d9a04a,stroke-width:2px
+```
+
+
+example of other rag in prod:
+- multi modal rag 0 images, audio, with text
+- hybrid search - comnine semantic + keyword search
+- rag with agents - cross domain scoring ranking

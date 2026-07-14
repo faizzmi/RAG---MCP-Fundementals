@@ -1,0 +1,398 @@
+# RAG & MCP Crash Course — Study Notes
+
+> Source: freeCodeCamp-style crash course transcript. Organized by topic, with diagrams and added insight (mine + current industry context as of mid-2026).
+
+---
+
+## 1. What Is RAG (Simplest Explanation)
+
+**Core idea:** an LLM alone can't answer questions about your private data (e.g. "what's the home office reimbursement policy?") because it was never trained on it — it will hallucinate a generic answer. RAG fixes this by **retrieving** the relevant document, **augmenting** the prompt with it, then letting the LLM **generate** the answer.
+
+```mermaid
+flowchart LR
+    Q[User Question] --> R[Retrieve relevant docs]
+    R --> A[Augment prompt with context]
+    A --> G[LLM Generates answer]
+    G --> U[Response to user]
+
+    style Q fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style R fill:#2d4a2d,stroke:#5cb85c,color:#fff
+    style A fill:#4a2d4a,stroke:#c95cc9,color:#fff
+    style G fill:#5f3a1e,stroke:#d9a04a,color:#fff
+    style U fill:#1e3a5f,stroke:#4a90d9,color:#fff
+```
+
+**Key insight:** RAG = automating something you already do manually (copy-pasting a policy doc into ChatGPT). The whole system exists to remove the human from that retrieval step.
+
+---
+
+## 2. Prompt Engineering vs Fine-Tuning vs RAG
+
+The course frames these as three separate levers, not competitors:
+
+| Approach | Solves | Weakness |
+|---|---|---|
+| **Prompt engineering** | Behavior rules, restrictions, tone guardrails (e.g. "never reveal salary info, redirect to HR") | Doesn't add new knowledge |
+| **Fine-tuning** | Voice, style, consistent tone (e.g. mimicking a CEO's speech pattern) | Expensive/slow to retrain, no citations, knowledge goes stale, more data can *reduce* accuracy |
+| **RAG** | Dynamic, frequently-changing factual knowledge | Doesn't change the model's tone/personality by itself |
+
+```mermaid
+flowchart TD
+    Need{What are you fixing?}
+    Need -->|Behavior rules, safety, tone constraints| PE[Prompt Engineering]
+    Need -->|Voice, style, consistent persona| FT[Fine-Tuning]
+    Need -->|Facts that change over time| RAG[RAG]
+    PE --> Combine[Real systems combine all three]
+    FT --> Combine
+    RAG --> Combine
+```
+
+**My take:** the transcript's framing is right but slightly clean — in production you almost always end up doing prompt engineering *around* RAG output too (e.g. "if retrieved context is empty, say you don't know"), so the three aren't cleanly separable, they stack.
+
+**Internet POV:** this matches the mainstream 2025–2026 consensus (Anthropic, OpenAI, and most RAG vendors all say the same) — fine-tuning is for *how* a model talks, RAG is for *what it knows right now*. The nuance the transcript skips: newer long-context models sometimes let you skip retrieval entirely for small corpora (just stuff the whole doc set in context), so "RAG vs long-context stuffing" is a real 2026-era tradeoff worth knowing about, especially since context windows have gotten much cheaper.
+
+---
+
+## 3. Keyword Search: TF-IDF and BM25
+
+**Problem it solves:** find which document contains the query terms.
+
+- **TF-IDF (Term Frequency–Inverse Document Frequency):** scores words by how often they appear in a document vs how common they are across all documents. Common words (like "office" appearing everywhere) get down-weighted.
+- **BM25:** a stricter, more modern ranking function — same idea but penalizes very common words harder and handles document length better. Generally the industry-preferred keyword algorithm today.
+
+```mermaid
+flowchart LR
+    Docs[Document Collection] --> Index[Build term frequency index]
+    Index --> Score[Score each doc per query term]
+    Query[User Query: 'furniture'] --> Score
+    Score --> Rank[Rank docs by combined score]
+    Rank --> Top[Return top match]
+```
+
+**Critical limitation (important):** keyword search only works if the **exact word** is present. Ask for "allowance" when the doc says "reimbursement," and it fails completely — no partial credit, no synonym understanding.
+
+**Insight:** TF-IDF/BM25 are still used *underneath* modern RAG stacks, not as a replacement for embeddings but as a complement — this is called **hybrid search**. Most production RAG systems in 2026 combine BM25 (great at exact terms, codes, IDs, acronyms) with vector search (great at meaning) because embeddings alone are surprisingly bad at exact-match lookups like product SKUs or legal clause numbers.
+
+---
+
+## 4. Semantic Search & Embeddings
+
+Semantic search fixes the "exact word" problem by matching on **meaning** instead of literal text.
+
+**How it works:**
+1. An embedding model converts text into a vector (list of numbers) representing meaning.
+2. Similar meanings → vectors that sit close together in high-dimensional space.
+3. Similarity is measured mathematically (dot product / cosine similarity).
+
+```mermaid
+flowchart TD
+    T1["'dogs are allowed in the office'"] --> E[Embedding Model]
+    T2["'pets in the workplace'"] --> E
+    T3["'remote work policy'"] --> E
+    E --> V1["Vector: [0.55, 0.12, ...]"]
+    E --> V2["Vector: [0.58, 0.15, ...]"]
+    E --> V3["Vector: [0.02, 0.91, ...]"]
+    V1 -.close together.-> V2
+    V3 -.far apart.-> V1
+```
+
+### Model size example from the course
+| Model | Parameters | Size | Use |
+|---|---|---|---|
+| all-MiniLM-L6-v2 | 22M | ~90MB | Embeddings, runs locally |
+| GPT-3.5 | 175B | ~350GB | Generation |
+| GPT-4 | 1.8T | ~3.6TB | Generation |
+
+**Local vs API embeddings:** sentence-transformers models run free, offline, on your laptop. OpenAI-style embedding APIs cost per call and need internet, but tend to be higher quality / more up to date.
+
+**Insight — important nuance the transcript doesn't stress:** all-MiniLM-L6-v2 is a *great teaching model* but it's fairly dated and weak by 2026 standards. Current leaderboards (MTEB / Hugging Face) are topped by much larger, higher-accuracy embedding models. If you're building AgriAssist-style retrieval on Malaysian agri/policy documents, MiniLM is fine to prototype with, but for anything domain-specific or non-English-heavy, a stronger multilingual embedding model will noticeably improve retrieval quality — worth benchmarking before you lock in a production model.
+
+---
+
+## 5. Vector Similarity (Dot Product)
+
+Since 384-dimension vectors can't be visualized, similarity is computed mathematically:
+
+1. Multiply corresponding vector components.
+2. Sum the products.
+3. Normalize to a 0–1 score.
+4. Closer to 1 = more similar.
+
+**Course example result:** "dogs" vs "pets" → 73.3% similar. "dogs" vs "remote" → 36.2%. This demonstrates the model understands **category**, not just spelling.
+
+---
+
+## 6. Vector Databases
+
+**Why not just compare every vector manually?** With 500 docs × 384 dims, that's ~192,000 calculations *per query*. Doesn't scale — like searching a phone book page by page.
+
+**Solution: indexing.** Pre-organize vectors into "neighborhoods" so search only touches relevant clusters.
+
+```mermaid
+flowchart TD
+    Q[Query: dog policy] --> Idx[HNSW Index]
+    Idx --> N1[Animal Policies Neighborhood]
+    Idx -.skip.-> N2[Health Benefits Neighborhood]
+    Idx -.skip.-> N3[Remote Work Neighborhood]
+    N1 --> R[Return only relevant matches]
+```
+
+### Indexing algorithms mentioned
+- **HNSW** (Hierarchical Navigable Small World) — graph of nearest neighbors, most widely used default. Fast + accurate.
+- **IVF** (Inverted File) — clusters vectors into buckets, search only relevant buckets.
+- **LSH** (Locality Sensitive Hashing) — hashes similar vectors into the same bucket.
+
+### Vector DB options
+| DB | Best for |
+|---|---|
+| **Chroma** | Learning, prototyping, free, Python-native |
+| **Pinecone** | Managed, production-scale, pay-per-use |
+| **Weaviate** | GraphQL API, hybrid search built-in |
+
+**Important practical detail:** Chroma is **in-memory by default** — data disappears when the program stops. Use `PersistentClient` with a storage path for anything real.
+
+**Insight:** the transcript's DB list is a fair snapshot but the space has moved fast — pgvector (Postgres extension) has become a very popular choice specifically *because* teams don't want to run a separate vector DB alongside their existing PostgreSQL instance. Given your AgriAssist stack already runs PostgreSQL/Supabase, pgvector is worth a serious look before adding Chroma as a separate service — one less moving part to operate.
+
+---
+
+## 7. Chunking
+
+**The precision problem:** if you embed an entire 50-page handbook as one vector, a query about "remote work" returns the *whole handbook* — technically correct, practically useless.
+
+```mermaid
+flowchart LR
+    Doc[50-page Handbook] -->|no chunking| Bad[Entire doc returned = overwhelming]
+    Doc -->|chunking| Good[Small focused pieces]
+    Good --> Match[Only relevant chunk returned]
+```
+
+### Strategies covered
+- **Fixed-size chunks** (e.g. 500 characters) — simple, but risks splitting mid-sentence.
+- **Overlap** (e.g. 50 characters) — prevents context loss at chunk boundaries.
+- **Sentence-based / paragraph-based chunking** — respects natural boundaries.
+- (Mentioned but out of scope: semantic chunking, agentic chunking.)
+
+### Rules of thumb from the course
+- 200–500 characters per chunk, 50–100 character overlap.
+- Split at sentence boundaries, never mid-word.
+- Too small → lost context. Too large → poor precision (back to square one).
+
+**This directly matches your recent bug:** your `run_pipeline.py` `KeyError: 'chunks'` happened because `ingest()` wasn't returning a `chunks` key — this is exactly the "chunk documents → store → retrieve" step the course describes. Worth double-checking your `ingest()` return shape matches what `run_pipeline.py` expects at every stage, not just the final one.
+
+---
+
+## 8. The Full RAG Pipeline
+
+```mermaid
+flowchart TB
+    subgraph Offline["Pipeline (done ahead of time)"]
+        Docs[Policy Documents] --> Chunk[Chunk: 500 chars, 50 overlap]
+        Chunk --> Embed[Generate Embeddings]
+        Embed --> Store[Load into Vector DB]
+    end
+
+    subgraph Runtime["At query time"]
+        Query[User Query] --> Search[Search Vector DB]
+        Search --> Chunks[Relevant Chunks Returned]
+        Chunks --> Augment[Augment Prompt + Query]
+        Augment --> LLM[LLM Generates Response]
+    end
+
+    Store -.available for.-> Search
+```
+
+**Key distinction:** ingestion (chunk → embed → store) happens *before* users ever ask a question. Retrieval (search → augment → generate) happens *at query time*. Conflating these two phases is a common beginner mistake.
+
+---
+
+## 9. Production Concerns: Caching, Monitoring, Error Handling
+
+### 9.1 Caching
+RAG is slow — embeddings + vector search + LLM calls can add up to ~1 second per query. Since many queries repeat, caching turns that into milliseconds.
+
+| Cache type | Stores | Use case |
+|---|---|---|
+| Query cache | Full Q&A pairs | Exact repeated questions |
+| Embedding cache | Computed vectors | Same chunk embedded multiple times |
+| Vector search cache | DB query results | Similar queries → same chunks |
+| LLM response cache | Generated answers | Most expensive to compute, most valuable to cache |
+
+```mermaid
+flowchart LR
+    Q[Query] --> Key[Hash query+context → cache key]
+    Key --> Check{In Redis?}
+    Check -->|Yes| Fast[Return cached response]
+    Check -->|No| Pipeline[Run full RAG pipeline]
+    Pipeline --> Store2[Store in Redis with TTL]
+    Store2 --> Fast
+```
+
+**Insight:** TTL choice matters more than the course lets on. For policy documents that change quarterly, a long TTL is fine — but if your underlying source doc updates and you don't invalidate the cache key, users get **confidently wrong, stale answers**, which is arguably worse than no cache at all. Cache invalidation (not just expiration) should be tied to your document update pipeline, not just time.
+
+### 9.2 Monitoring
+Standard metrics: response time, throughput, error rate. RAG-specific metrics: retrieval quality (are the right chunks coming back?), embedding latency, chunking efficiency.
+
+Tools mentioned: **Prometheus** (metrics), **Grafana** (dashboards), **Jaeger** (tracing), **ELK stack** (logging).
+
+### 9.3 Error Handling — Graceful Degradation
+This maps directly to the fallback pattern in your code snippet:
+
+```mermaid
+flowchart TD
+    Start[Query] --> Full[Try full RAG pipeline]
+    Full -->|VectorDBError| KW[Fallback: keyword search]
+    Full -->|LLMError| Chunks[Fallback: return raw retrieved chunks]
+    Full -->|EmbeddingError| Text[Fallback: simple text matching]
+    Full -->|Success| Answer[Return generated answer]
+    KW --> Answer2[Formatted result]
+    Chunks --> Answer2
+    Text --> Answer2
+    KW -->|also fails| Err[Generic error message]
+
+    style Full fill:#2d4a2d,stroke:#5cb85c,color:#fff
+    style Err fill:#5f1e1e,stroke:#d94a4a,color:#fff
+```
+
+**Important design idea highlighted in the transcript:** a **half-open circuit breaker** pattern — periodically retry the failed component in the background, and only resume normal operation once it succeeds again, instead of just retrying every single request against a known-broken service.
+
+---
+
+## 10. Production Architecture (Kubernetes)
+
+```mermaid
+flowchart TB
+    subgraph App["Application Layer"]
+        UI[Web UI]
+        Mobile[Mobile Backend]
+        Admin[Admin Interface]
+    end
+
+    subgraph RAGL["RAG Pipeline Layer (microservices)"]
+        QP[Query Processing]
+        Ch[Chunking]
+        Emb[Embedding]
+        Ret[Retrieval]
+        Aug[Augmentation]
+        Gen[Generation]
+    end
+
+    subgraph Data["Data Layer"]
+        Chroma[Chroma / Vector DB]
+        Redis[Redis Cache]
+        PG[PostgreSQL]
+    end
+
+    subgraph Mon["Monitoring Stack"]
+        Prom[Prometheus]
+        Graf[Grafana]
+        Jaeger[Jaeger Tracing]
+        ELK[ELK Logging]
+    end
+
+    App --> RAGL --> Data
+    RAGL -.metrics.-> Mon
+    Data -.metrics.-> Mon
+```
+
+**Why this matters:** each RAG microservice scales independently — embedding generation might need GPU-backed pods that scale differently from the lightweight query router. Bundling everything into one monolith defeats the point of this layered design.
+
+---
+
+## 11. Introduction to MCP (Model Context Protocol)
+
+**The problem MCP solves:** LLMs can only generate text/image/audio — they can't *act*. To let an AI agent book a flight, check a database, or call an API, you traditionally had to hand-write custom integration code for every third-party service, each with different endpoints and response formats.
+
+**MCP = a standard so any AI agent can talk to any tool without custom glue code**, the same way USB-C standardized device charging instead of every device needing its own cable.
+
+```mermaid
+flowchart LR
+    Agent[AI Agent] -->|standard protocol| MCPClient[MCP Client]
+    MCPClient <-->|JSON-RPC| MCPServer[MCP Server]
+    MCPServer --> API1[Airline A API]
+    MCPServer --> API2[Airline B API]
+    MCPServer --> API3[Internal Database]
+```
+
+---
+
+## 12. MCP Architecture — Core Components
+
+An MCP **server** exposes three things to clients:
+
+| Component | What it is | Example |
+|---|---|---|
+| **Tools** | Actions the agent can invoke | `search_flights`, `create_booking` |
+| **Resources** | Reference data the agent can read | Airport codes, policies, FAQs |
+| **Prompts** | Server-author-defined prompt templates | "You are a travel assistant, always format dates as..." |
+
+An MCP **client** (embedded in tools like Claude Code, Cursor, Windsurf) exposes back to the server:
+
+| Component | What it is |
+|---|---|
+| **Roots** | Which local folders/files the server is allowed to see |
+| **Sampling** | Lets the server ask the client's LLM to do something (e.g. summarize), keeping model choice with the client |
+| **Elicitation** | Lets the server ask the *end user* directly for input/confirmation |
+
+```mermaid
+flowchart TB
+    subgraph Server["MCP Server exposes"]
+        Tools[Tools]
+        Res[Resources]
+        Prompts[Prompts]
+    end
+    subgraph Client["MCP Client exposes"]
+        Roots[Roots]
+        Sampling[Sampling]
+        Elicit[Elicitation]
+    end
+    Server <-->|JSON-RPC 2.0| Client
+```
+
+**Communication protocol:** JSON-RPC 2.0 — client sends `{jsonrpc: "2.0", method, params, id}`, server replies `{jsonrpc: "2.0", result, id}` (or `error`). Transport can be **stdio** (local, simplest, fast — used when client and server are both on your machine) or **HTTP** (remote-hosted servers).
+
+---
+
+## 13. Building an MCP Server (Python SDK)
+
+```mermaid
+flowchart LR
+    Init["Initialize FastMCP server"] --> DefTools["@mcp.tool decorator on functions"]
+    Init --> DefRes["@mcp.resource decorator on functions"]
+    Init --> DefPrompts["@mcp.prompt decorator on functions"]
+    DefTools --> Run["mcp.run(transport='stdio' or 'http')"]
+    DefRes --> Run
+    DefPrompts --> Run
+```
+
+Testing: **MCP Inspector** (`npx @modelcontextprotocol/inspector`) gives a web UI to list tools/resources/prompts and test calls before wiring up a full client.
+
+---
+
+## 14. Insight: Where MCP Actually Stands (Mid-2026)
+
+The transcript teaches MCP as of the 2025-06-18 / 2025-11-25 specification generation (stateful sessions, server-initiated sampling/elicitation calls). **This is still the current stable spec as of writing**, but it's worth knowing what's changing, since you'll likely hit this soon if you keep building MCP servers:
+
+- A **2026-07-28 release candidate** is locked and scheduled to finalize on that date. The headline change is that **MCP becomes stateless at the protocol layer** — the session handshake and `Mcp-Session-Id` header are removed from Streamable HTTP, which makes remote MCP servers much easier to horizontally scale behind normal load balancers.
+- **Roots, Sampling, and Logging are being deprecated** (not removed yet — a 12-month minimum deprecation window applies) in favor of a new **Multi Round-Trip Requests** pattern, where a server returns an `InputRequiredResult` and the client re-issues the call with answers, instead of the server calling back into the client mid-request.
+- A new **Extensions framework** and **MCP Apps** (servers shipping interactive HTML UI rendered in sandboxed iframes) and **Tasks** (long-running work, moved out of core into an extension) are being formalized.
+- MCP was **donated to the Agentic AI Foundation under the Linux Foundation** in December 2025 — it's no longer solely Anthropic-governed, which is a meaningful governance shift for anyone betting infrastructure on it.
+- Security researchers (Akamai, via SC Media) flag that the statelessness shift introduces *new* attack surfaces — e.g. workflow hijacking via client-held state manipulation, and "hit-and-run" task abuse as a denial-of-service pattern — so the security model isn't strictly "safer," just differently risky.
+
+**Practical takeaway for your MCP learning project:** build against the current stable spec (2025-11-25) as the transcript teaches — that's correct today. But don't hardcode assumptions about sessions or server-initiated sampling calls too deeply into your architecture, since those are the exact pieces slated for deprecation in the next release. If you're still building this project past July 28, 2026, check whether your SDK version has moved to the new spec.
+
+---
+
+## 15. Quick-Reference Summary Table
+
+| Topic | One-line takeaway |
+|---|---|
+| RAG | Retrieve → Augment → Generate, fixes LLM's lack of private/current knowledge |
+| Prompt Engineering | Best for behavior rules and constraints |
+| Fine-tuning | Best for voice/style, bad for fast-changing facts |
+| Keyword search (TF-IDF/BM25) | Exact word match only, no synonym understanding |
+| Semantic search | Matches by meaning via embeddings, fixes keyword search's blind spot |
+| Vector DB | Needed once you have too many vectors to brute-force compare |
+| Chunking | Break large docs into focused pieces — balance context vs precision |
+| Caching | Cache at query/embedding/search/LLM level, watch TTL + invalidation |
+| Error handling | Cascading fallback + circuit breaker = graceful degradation |
+| MCP | Standard protocol so any agent can use any tool without custom glue code |
