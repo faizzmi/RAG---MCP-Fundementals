@@ -14,6 +14,11 @@ redis
 json
 hashlib
 
+google-genai
+
+jsonrpcclient
+jsonrpcserver
+
 numpy
 pandas
 python-dotenv

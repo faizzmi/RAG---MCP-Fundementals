@@ -1,0 +1,119 @@
+AI agents act as the bridge between human intent and action, utilizing tools to perform tasks they cannot do on their own. Think of an AI agent like a smart automation script that can "think" by interacting with an LLM to decide which steps to take, what loops to execute, and which third-party services to call to achieve a goal.
+
+### How AI Agents Interact Through Tools
+Traditionally, an agent would need custom code written for every single service it interacts with (e.g., separate API calls for different airlines). This is inefficient and difficult to maintain.
+
+### What is the Model Context Protocol (MCP)?
+MCP serves as a standardized guide that allows AI agents to discover and interact with third-party tools consistently, without needing bespoke code for every connection. It follows a client-server architecture:
+
+- The Client: Typically your AI assistant or IDE (like Cursor or Root Code) which initiates requests.
+
+- The Server: A lightweight service that exposes specific capabilities to the agent.
+
+### The Correct Implementation of MCP
+To implement MCP correctly, you focus on three core components defined by the specification:
+
+- Resources: Data that the agent needs to reference, such as policy documents, flight lists, or weather data. These are defined with specific URIs.
+
+- Tools: Executable functions that allow the agent to "take action," such as search_flights or create_booking. You define these using an mcp.tool decorator in the Python SDK.
+
+- Prompts: Pre-defined instructions that the server provides to the agent to ensure it handles specific tasks (like finding the best flight) with the correct context and formatting.
+
+### Implementation Workflow:
+
+- Development: Use the FastMCP Python library to define your tools, resources, and prompts as functions decorated with @mcp.resource, @mcp.tool, or @mcp.prompt.
+
+- Configuration: Add your MCP server details (command, arguments, and working directory) to your IDE's mcp.json configuration file so the client can discover it.
+
+- Transport: The server and client communicate using JSON-RPC over Standard IO (for local processes) or HTTP (for remote/shared servers) 
+
+
+## So what is mcp
+standard how ai applicaiton cna work together
+MCP --> MCP Server
+2.1 base protocol 
+- json-rrpc message format
+- stateful connections
+- server adn client capability negotiaition
+
+what cliet offert to server
+- sampling: server initiated agentic behavios and recursive llm interactions
+- roots: server-inititate dinquiries into uri or filessytem voundaries to operate in 
+- elicitations: server-inititared request for additional info from user 
+
+what servers offer nay of the following features to clients
+- resources : context and data, for the user or the ai model to use
+- prompt: templated message and workflow for users
+- tools: fucniton for the ai model to execute
+
+```mermaid 
+flowchart LR
+    LLM["LLM(GPT)<br/>(user query:) Find me a flight to Malaysia"]
+    Agent["Agent<br/>(prompts:) You are a travel assistant. When the user asks about flighs, you must call the (search_flights) tool with origin, destination n date...."]
+    CLIENT["MCP CLIENT"]
+    SERVER["MCP SERVER"]
+    FLIGHT["Air Asia Data"]
+    subgraph Policies["policies"]
+        Rules["Refund Rules"]
+        Guide["City Guuides"]
+        FAQ["FAQs"]
+    end 
+    LLM --> Agent
+    Agent --- Client
+    CLIENT --> SERVER
+    SERVER --> FLIGHT
+    SERVER --- Policies
+```
+
+- first need to know about theserver build, 
+- what capabilities it have, 
+- what api does server support ( refer the api document to get data from the company)
+
+mcp nned to exposed to client eg; tools, resources, prompts
+
+
+client n server communicate thru use json-rpc (remote procedure call)
+eg
+client;
+```python
+rpc_request = request("add", {3,2})
+```
+
+```json
+{
+    "jsonrpc": "2.0",
+    "method": "add",
+    "params": {
+        "a": 10,
+        "b": 5
+    },
+    "id": 42
+}
+```
+can be connected using transport: HTTP(/), STDIO(/), TCP, UCP. Inix Sockets, Message Q
+
+server:
+```python
+def add(a: float, b:float):
+    return (a + b)
+```
+
+```json
+{
+    "jsonrpc": "2.0"
+    "result": 15
+    "error": {}
+    "id": 42
+}
+```
+
+
+```python
+response await mcp_client.call_tool(
+    "flight-search",
+    {
+        "origin": "NYC",
+        ...
+    }
+)
+```

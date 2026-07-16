@@ -1,0 +1,19 @@
+an AI agent acts as an action-oriented system that can perform tasks, interact with third-party tools, and make decisions by leveraging an LLM.
+
+### The Role of an AI Agent
+Unlike a standard LLM, which is typically limited to generating text or media, an AI agent is designed to take action on behalf of the user. It bridges the gap between simply "knowing" information and "doing" something with it.
+
+### What it Does
+An AI agent manages complex workflows that require multiple steps, such as:
+
+- Interacting with external platforms: Connecting to websites, APIs, or databases (e.g., flight booking services or internal company systems).
+- Gathering and processing information: Fetching data based on user requirements or preferences.
+- Decision-making: Using an LLM to analyze retrieved data, determine the next logical step in a process, and evaluate if a goal has been met.
+
+### How it Works
+An AI agent follows a cyclical, "thinking" workflow:
+
+- Input Analysis: It takes a user request and uses an LLM to extract specific details (e.g., "the destination is London").
+- Tool Selection: It asks the LLM to identify which external tools or APIs are needed to fulfill the request.
+- Execution & Feedback Loop: It performs the necessary calls to these tools, retrieves data, and continues to consult the LLM to decide whether to iterate, fetch more data, or conclude the task.
+- Task Completion: Once the goal is achieved, the agent performs the final action (like booking a flight) and reports back to the user.
