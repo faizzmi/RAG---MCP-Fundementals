@@ -117,3 +117,131 @@ response await mcp_client.call_tool(
     }
 )
 ```
+
+
+
+mcp client
+- roots
+```bash
+cd ../home/projects/flygpt
+cd resources
+dir resources
+new-flight-policy.txt
+refund-policy.txt
+```
+
+```python
+# client.py
+form mcp.client.session import ClientSession
+
+allowed_roots = [
+    "file:///home/projects/flygpt"
+]
+
+client - CLient("htps://localhost/... roots=allowed_roots")
+
+# server
+from mcp.server.fastmcp import FastMCP
+mcp = FastMCP("flight-server")
+
+@mcp.tool()
+async def get_client_roots(stxL Context):
+    roots_response -  await ctx.session.list_roots(0)
+    retsun roots_response
+```
+
+- sampling
+mcp client have:
+-- llm integration
+-- token limits
+-- model selection
+
+mcp server have:
+-- logic
+--  tool definition
+-- resources
+-- ligthweight
+-- decoupied from Ai
+
+```python
+# client.py
+async def my_llm_header(messages. params, context):
+    prompt = omessage[0].content.text
+
+    response = call_my_llm_sevice(prompt)
+
+    retrun response
+
+client = CLient("lcoalhist/...",
+sampling_handler=my_llm_handler)
+```
+
+```python
+@mcp.tool()
+async def generate_context(topic: str, ctx: Context):
+    prompt = f"Write something about {topic}"
+    
+    # Request LLM generation
+    result =  await ctx.create_message(
+        {SamplingMessage(role='user', content=TextCOntent(text=prompt))}
+    )
+
+    return result.content.text
+```
+
+
+
+- elicitaiton
+interact to use to make better decision, like confirmation after ask the ai agent
+
+```python
+# client
+from mcp.client.session import ClientSession
+from mcp.client.streamable_http import streamlehttp_client
+from mcp.types import ElicitRequestParams, ElicitResult
+
+async def handle_elicitaiton(context, params: ElicitRequestParams) -> ElicitResult:
+    print("Server request: {params.message}")
+
+    name = input("enter ur name:")
+    age = int(input("enter ur name:"))
+
+    user_response = { "name": name, "age": age}
+
+    retrun ElicitResult(action="accept", content=user_reponse)
+
+async def main():
+    async data streamablehttp_clinet ("http://localhsot:00") as (read, write, _):
+    async with CLientSession(readm write, elicitation_callback=handle_elicitation) as session:
+        await session.initialize()
+
+        result = await session.call_tool("ask_user_info", {})
+        print(result)
+
+```
+
+```python
+# server.py
+from mcp.server.fastmscp import fastmcp, Context
+
+from pydantic import BaseModel 
+
+mcp = FastMCP("elicitation-demo")
+
+class UserInfo(BaseModel):
+    name: str
+    age: int
+
+@mcp.tool()
+async def ask_user_info(ctx: Context) -> str:
+    result = await ctx.elicit(
+        message = "Please provide ur info:",
+        schema=UserInfo
+    )
+
+    user_data = result.data
+    return f"Hello {user_data.name}, {user_data.age}""
+
+mcp.run(transport="streamable-http")
+```
+mcp server
